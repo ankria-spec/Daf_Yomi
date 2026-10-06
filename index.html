@@ -1,0 +1,709 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>סיכומי דף היומי</title>
+    <!-- Google APIs & Identity -->
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <script src="https://apis.google.com/js/api.js"></script>
+
+    <style>
+        /* ========================
+           CSS / עיצוב האפליקציה
+           ======================== */
+        :root {
+            --primary: #1976d2;
+            --primary-light: #e3f2fd;
+            --bg-color: #f4f6f8;
+            --surface: #ffffff;
+            --text-main: #202124;
+            --text-secondary: #5f6368;
+            --border: #dadce0;
+            --success: #0f9d58;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --primary: #8ab4f8;
+                --primary-light: #3c4043;
+                --bg-color: #202124;
+                --surface: #2d2e30;
+                --text-main: #e8eaed;
+                --text-secondary: #9aa0a6;
+                --border: #5f6368;
+                --success: #81c995;
+            }
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        
+        body {
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            line-height: 1.6;
+        }
+
+        header {
+            background-color: var(--surface);
+            padding: 16px 20px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        h1 { font-size: 1.25rem; }
+        
+        .user-info { font-size: 0.85rem; color: var(--text-secondary); display: flex; flex-direction: column; align-items: flex-end;}
+
+        main { padding: 20px; max-width: 800px; margin: 0 auto; }
+
+        button {
+            background-color: var(--primary);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 20px;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: opacity 0.2s;
+            font-family: inherit;
+        }
+        button:hover { opacity: 0.9; }
+        button:disabled { opacity: 0.5; cursor: not-allowed; }
+        
+        .btn-outline {
+            background-color: transparent;
+            color: var(--primary);
+            border: 1px solid var(--primary);
+        }
+
+        /* מסך התחברות */
+        #login-screen {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 70vh;
+            text-align: center;
+        }
+        
+        /* רשימת הדפים */
+        .masechet-group { margin-bottom: 24px; }
+        .masechet-title {
+            font-size: 1.1rem;
+            border-bottom: 2px solid var(--primary);
+            padding-bottom: 4px;
+            margin-bottom: 12px;
+            color: var(--primary);
+        }
+        
+        .daf-list { list-style: none; }
+        .daf-item {
+            background: var(--surface);
+            margin-bottom: 8px;
+            padding: 16px;
+            border-radius: 8px;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+            display: flex;
+            align-items: center;
+            cursor: pointer;
+            border: 1px solid var(--border);
+            transition: transform 0.1s, box-shadow 0.1s;
+        }
+        .daf-item:active { transform: scale(0.98); }
+        .daf-item .icon {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            border: 2px solid var(--border);
+            margin-left: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.8rem;
+        }
+        .daf-item.read .icon {
+            background-color: var(--success);
+            border-color: var(--success);
+            color: white;
+        }
+        .daf-item.read .icon::after { content: "✓"; }
+
+        .progress-bar {
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        /* מסך קריאה */
+        #reader-screen { display: none; }
+        .reader-header {
+            margin-bottom: 20px;
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 10px;
+        }
+        .reader-content {
+            font-size: 1.15rem;
+            line-height: 1.8;
+            white-space: pre-wrap;
+            margin-bottom: 40px;
+        }
+        
+        .reader-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 10px;
+            margin-top: 20px;
+            padding-top: 20px;
+            border-top: 1px solid var(--border);
+        }
+        
+        .reader-nav button { flex: 1; }
+
+        .action-bar {
+            display: flex;
+            gap: 10px;
+            margin-top: 16px;
+            justify-content: center;
+        }
+
+        /* Loader */
+        .loader {
+            display: none;
+            text-align: center;
+            padding: 40px;
+            color: var(--text-secondary);
+        }
+
+        .hidden { display: none !important; }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>סיכומי דף היומי</h1>
+        <div class="user-info">
+            <span id="user-email">לא מחובר</span>
+            <button id="btn-sync" class="btn-outline hidden" style="padding: 4px 10px; font-size: 0.8rem; margin-top:4px;">רענן מ-Gmail</button>
+        </div>
+    </header>
+
+    <main>
+        <!-- מסך התחברות -->
+        <div id="login-screen">
+            <h2 style="margin-bottom: 16px;">ברוכים הבאים</h2>
+            <p style="margin-bottom: 24px; color: var(--text-secondary);">האפליקציה מתחברת ל-Gmail כדי לשלוף את סיכומי הדף היומי שלך בצורה מאובטחת.</p>
+            <button id="btn-login">התחבר עם Google</button>
+        </div>
+
+        <div id="loader" class="loader">
+            קורא מיילים... אנא המתן...
+        </div>
+
+        <!-- מסך רשימה -->
+        <div id="list-screen" class="hidden">
+            <div id="progress" class="progress-bar"></div>
+            <div id="masechtot-container"></div>
+        </div>
+
+        <!-- מסך קריאה -->
+        <div id="reader-screen" class="hidden">
+            <button id="btn-back" class="btn-outline" style="margin-bottom: 16px;">חזור לרשימה</button>
+            <div class="reader-header">
+                <h2 id="reader-title">מסכת חולין - קמ"ב ע"ב</h2>
+            </div>
+            <div id="reader-content" class="reader-content"></div>
+            
+            <div class="action-bar">
+                <button id="btn-toggle-read">סמן כנקרא</button>
+            </div>
+
+            <div class="reader-nav">
+                <button id="btn-next">דף הבא ←</button>
+                <button id="btn-prev">→ דף קודם</button>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        /* ========================
+           לוגיקה ו-JavaScript
+           ======================== */
+
+        // ----------------------------------------------------
+        // הגדרות חשובות - חובה למלא Client ID
+        // ----------------------------------------------------
+        const CLIENT_ID = 'הכנס-כאן-את-ה-CLIENT-ID-שלך.apps.googleusercontent.com';
+        const SCOPES = 'https://www.googleapis.com/auth/gmail.readonly';
+        
+        let tokenClient;
+        let accessToken = null;
+        let userEmail = '';
+
+        // סדר מסכתות הש"ס הבבלי למיון
+        const SEDER_HASHAS = [
+            'ברכות', 'שבת', 'עירובין', 'פסחים', 'שקלים', 'יומא', 'סוכה', 'ביצה', 'ראש השנה', 'תענית', 'מגילה', 'מועד קטן', 'חגיגה',
+            'יבמות', 'כתובות', 'נדרים', 'נזיר', 'סוטה', 'גיטין', 'קידושין',
+            'בבא קמא', 'בבא מציעא', 'בבא בתרא', 'סנהדרין', 'מכות', 'שבועות', 'עבודה זרה', 'הוריות',
+            'זבחים', 'מנחות', 'חולין', 'בכורות', 'ערכין', 'תמורה', 'כריתות', 'מעילה', 'תמיד', 'מידות', 'קינים', 'נידה'
+        ];
+
+        // משתני מצב
+        let allPages = []; // המערך הממוין של כל הדפים
+        let currentReaderIndex = -1;
+        let readPages = new Set(JSON.parse(localStorage.getItem('readPages') || '[]'));
+
+        // DOM Elements
+        const screens = {
+            login: document.getElementById('login-screen'),
+            list: document.getElementById('list-screen'),
+            reader: document.getElementById('reader-screen')
+        };
+        const loader = document.getElementById('loader');
+        
+        // ----------------------------------------------------
+        // מערכת אימות (OAuth) ו-Google API
+        // ----------------------------------------------------
+        function gapiLoaded() {
+            gapi.load('client', initializeGapiClient);
+        }
+
+        async function initializeGapiClient() {
+            await gapi.client.init({
+                discoveryDocs: ['https://www.googleapis.com/discovery/v1/apis/gmail/v1/rest'],
+            });
+            checkCachedData();
+        }
+
+        function gisLoaded() {
+            tokenClient = google.accounts.oauth2.initTokenClient({
+                client_id: CLIENT_ID,
+                scope: SCOPES,
+                callback: (tokenResponse) => {
+                    if (tokenResponse.error !== undefined) {
+                        alert('שגיאה בהתחברות: ' + tokenResponse.error);
+                        return;
+                    }
+                    accessToken = tokenResponse.access_token;
+                    fetchUserProfile();
+                    syncFromGmail();
+                },
+            });
+        }
+
+        document.getElementById('btn-login').onclick = () => {
+            if (!CLIENT_ID || CLIENT_ID.includes('הכנס-כאן')) {
+                alert('שגיאה: חסר Client ID בקוד. אנא עקוב אחר ההוראות והכנס את המזהה שלך מ-Google Cloud.');
+                return;
+            }
+            tokenClient.requestAccessToken({prompt: 'consent'});
+        };
+
+        document.getElementById('btn-sync').onclick = () => {
+            if (!accessToken) tokenClient.requestAccessToken({prompt: ''});
+            else syncFromGmail();
+        };
+
+        async function fetchUserProfile() {
+            try {
+                const response = await gapi.client.gmail.users.getProfile({ userId: 'me' });
+                userEmail = response.result.emailAddress;
+                document.getElementById('user-email').innerText = userEmail;
+                document.getElementById('btn-sync').classList.remove('hidden');
+            } catch (err) {
+                console.error('Error fetching profile', err);
+            }
+        }
+
+        // ----------------------------------------------------
+        // שליפת הנתונים ו-Gmail API
+        // ----------------------------------------------------
+        async function syncFromGmail() {
+            showLoader();
+            try {
+                const query = 'in:inbox (from:m@sdaf.co.il OR from:"סיכומי דף היומי") subject:מבודדים';
+                let response = await gapi.client.gmail.users.messages.list({
+                    userId: 'me',
+                    q: query,
+                    maxResults: 50
+                });
+
+                const messages = response.result.messages || [];
+                if (messages.length === 0) {
+                    alert('לא נמצאו הודעות מתאימות בתיבת הדואר.');
+                    showScreen('list');
+                    return;
+                }
+
+                let parsedPages = [];
+                
+                // שליפת התוכן המלא עבור כל מייל
+                for (let i = 0; i < messages.length; i++) {
+                    const msgDetails = await gapi.client.gmail.users.messages.get({
+                        userId: 'me',
+                        id: messages[i].id,
+                        format: 'full'
+                    });
+                    const extracted = parseEmailMessage(msgDetails.result);
+                    parsedPages = parsedPages.concat(extracted);
+                }
+
+                processAndSavePages(parsedPages);
+                renderList();
+                showScreen('list');
+
+            } catch (err) {
+                console.error(err);
+                alert('שגיאה בשליפת הודעות מ-Gmail. המכסה אולי נגמרה, או שיש בעיית תקשורת.');
+                showScreen('login');
+            }
+        }
+
+        // ----------------------------------------------------
+        // פענוח תוכן המייל (MIME / Base64)
+        // ----------------------------------------------------
+        function parseEmailMessage(message) {
+            let subject = '';
+            message.payload.headers.forEach(h => {
+                if (h.name.toLowerCase() === 'subject') subject = h.value;
+            });
+
+            // מציאת המסכת הראשית מהנושא
+            let defaultMasechet = extractMasechetFromString(subject);
+
+            let bodyContent = getMessageBody(message.payload);
+            bodyContent = cleanEmailJunk(bodyContent);
+
+            if (!defaultMasechet) {
+                defaultMasechet = extractMasechetFromString(bodyContent.substring(0, 500)) || 'לא ידוע';
+            }
+
+            return extractDapimFromBody(bodyContent, defaultMasechet);
+        }
+
+        function getMessageBody(payload) {
+            let body = '';
+            if (payload.parts) {
+                for (let part of payload.parts) {
+                    if (part.mimeType === 'text/plain') {
+                        body = decodeBase64Url(part.body.data);
+                        break; // מעדיפים טקסט נקי
+                    } else if (part.mimeType === 'text/html') {
+                        let html = decodeBase64Url(part.body.data);
+                        body = stripHtmlRetainParagraphs(html);
+                    } else if (part.parts) {
+                        body = getMessageBody(part);
+                    }
+                }
+            } else if (payload.body && payload.body.data) {
+                body = decodeBase64Url(payload.body.data);
+                if (payload.mimeType === 'text/html') body = stripHtmlRetainParagraphs(body);
+            }
+            return body;
+        }
+
+        function decodeBase64Url(base64UrlStr) {
+            if (!base64UrlStr) return '';
+            const base64 = base64UrlStr.replace(/-/g, '+').replace(/_/g, '/');
+            const decodedBytes = Uint8Array.from(atob(base64), c => c.charCodeAt(0));
+            return new TextDecoder('utf-8').decode(decodedBytes);
+        }
+
+        function stripHtmlRetainParagraphs(html) {
+            // החלפת תגיות שמייצגות שבירת שורה
+            let text = html.replace(/<br\s*\/?>/gi, '\n');
+            text = text.replace(/<\/p>|<\/div>/gi, '\n\n');
+            // הסרת שאר תגיות ה-HTML
+            text = text.replace(/<[^>]+>/g, '');
+            // ניקוי רווחים מיותרים
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(text, 'text/html');
+            return doc.documentElement.textContent.replace(/\n\s*\n\s*\n/g, '\n\n').trim();
+        }
+
+        function cleanEmailJunk(text) {
+            const junkRegexes = [
+                /כל הזכויות שמורות.*/gi,
+                /הסר מרשימת התפוצה.*/gi,
+                /unsubscribe.*/gi,
+                /נשלח באמצעות.*/gi,
+                /לצפייה בדפדפן.*/gi,
+                /לתרומות ושותפות.*/gi,
+                /m@sdaf\.co\.il/gi
+            ];
+            let clean = text;
+            junkRegexes.forEach(regex => {
+                clean = clean.replace(regex, '');
+            });
+            return clean.trim();
+        }
+
+        // ----------------------------------------------------
+        // חילוץ מסכתות ודפים
+        // ----------------------------------------------------
+        function extractMasechetFromString(str) {
+            for (let m of SEDER_HASHAS) {
+                if (str.includes(m)) return m;
+            }
+            return null;
+        }
+
+        function extractDapimFromBody(text, currentMasechet) {
+            const pagesExtracted = [];
+            
+            // Regex לזיהוי כותרות עמודים: דף קמ"ב, דף קל"ג - ע"א, דף ב ע"ב
+            const headerRegex = /דף\s+([א-ת"']+)(?:\s*[-–]?\s*ע"([אב]))?/g;
+            
+            let matches = [];
+            let match;
+            while ((match = headerRegex.exec(text)) !== null) {
+                matches.push({
+                    index: match.index,
+                    fullMatch: match[0],
+                    dafStr: match[1].replace(/["']/g, ''), // הסרת גרשיים מהמספר
+                    amudStr: match[2] || 'א' // ברירת מחדל ע"א
+                });
+            }
+
+            for (let i = 0; i < matches.length; i++) {
+                const current = matches[i];
+                const next = matches[i + 1];
+                
+                // הטקסט של הדף מתחיל אחרי הכותרת ומסתיים בכותרת הבאה (או בסוף הטקסט)
+                const startPos = current.index + current.fullMatch.length;
+                const endPos = next ? next.index : text.length;
+                let content = text.substring(startPos, endPos).trim();
+                
+                // בדיקה אם הייתה החלפת מסכת בתוך התוכן (נדיר אבל נתמך)
+                const innerMasechet = extractMasechetFromString(current.fullMatch);
+                if (innerMasechet) currentMasechet = innerMasechet;
+
+                const dafNum = gematria(current.dafStr);
+                const amudNum = current.amudStr === 'ב' ? 2 : 1;
+                const masechetIndex = SEDER_HASHAS.indexOf(currentMasechet) !== -1 ? SEDER_HASHAS.indexOf(currentMasechet) : 999;
+                
+                const id = `${currentMasechet}|${dafNum}|${amudNum}`;
+
+                // לא נוסיף דפים ריקים לגמרי
+                if (content.length > 10) {
+                    pagesExtracted.push({
+                        id: id,
+                        masechet: currentMasechet,
+                        masechetIndex: masechetIndex,
+                        dafHeb: current.dafStr,
+                        dafNum: dafNum,
+                        amudHeb: current.amudStr,
+                        amudNum: amudNum,
+                        content: content
+                    });
+                }
+            }
+
+            return pagesExtracted;
+        }
+
+        // פונקציית גימטריה להמרת מספר עברי (א-ת) לערך מספרי לצורך מיון
+        function gematria(str) {
+            const values = {'א':1, 'ב':2, 'ג':3, 'ד':4, 'ה':5, 'ו':6, 'ז':7, 'ח':8, 'ט':9, 'י':10, 'כ':20, 'ל':30, 'מ':40, 'נ':50, 'ס':60, 'ע':70, 'פ':80, 'צ':90, 'ק':100, 'ר':200, 'ש':300, 'ת':400};
+            let sum = 0;
+            for (let i = 0; i < str.length; i++) {
+                if (values[str[i]]) sum += values[str[i]];
+            }
+            return sum;
+        }
+
+        // ----------------------------------------------------
+        // מיון, הסרת כפילויות ושמירה ל-Cache
+        // ----------------------------------------------------
+        function processAndSavePages(newPages) {
+            const uniqueMap = new Map();
+            
+            // הכנסת הדפים החדשים למפה כדי להסיר כפילויות לפי ה-ID (דפים שחופפים במיילים שונים)
+            newPages.forEach(p => uniqueMap.set(p.id, p));
+
+            allPages = Array.from(uniqueMap.values());
+
+            // המיון הקריטי לפי הסדר התלמודי!
+            // 1. אינדקס המסכת  2. מספר הדף  3. העמוד
+            allPages.sort((a, b) => {
+                if (a.masechetIndex !== b.masechetIndex) return a.masechetIndex - b.masechetIndex;
+                if (a.dafNum !== b.dafNum) return a.dafNum - b.dafNum;
+                return a.amudNum - b.amudNum;
+            });
+
+            // שמירה ב-LocalStorage כדי שלא נצטרך לקרוא מ-Gmail בכל רענון
+            try {
+                localStorage.setItem('dafYomiCache', JSON.stringify(allPages));
+            } catch(e) { console.warn("Quota exceeded for localStorage"); }
+        }
+
+        function checkCachedData() {
+            const cached = localStorage.getItem('dafYomiCache');
+            if (cached) {
+                allPages = JSON.parse(cached);
+                if (allPages.length > 0) {
+                    renderList();
+                    showScreen('list');
+                    return;
+                }
+            }
+            showScreen('login');
+        }
+
+        // ----------------------------------------------------
+        // ממשק משתמש (UI) והרנדור
+        // ----------------------------------------------------
+        function renderList() {
+            const container = document.getElementById('masechtot-container');
+            container.innerHTML = '';
+            
+            updateProgress();
+
+            let currentMasechetRender = null;
+            let ul = null;
+
+            allPages.forEach((page, index) => {
+                // יצירת כותרת למסכת חדשה
+                if (page.masechet !== currentMasechetRender) {
+                    currentMasechetRender = page.masechet;
+                    
+                    const group = document.createElement('div');
+                    group.className = 'masechet-group';
+                    
+                    const title = document.createElement('div');
+                    title.className = 'masechet-title';
+                    title.innerText = `מסכת ${page.masechet}`;
+                    
+                    ul = document.createElement('ul');
+                    ul.className = 'daf-list';
+                    
+                    group.appendChild(title);
+                    group.appendChild(ul);
+                    container.appendChild(group);
+                }
+
+                // יצירת השורה של הדף
+                const li = document.createElement('li');
+                li.className = 'daf-item ' + (readPages.has(page.id) ? 'read' : '');
+                li.onclick = () => openReader(index);
+
+                const icon = document.createElement('div');
+                icon.className = 'icon';
+                
+                const text = document.createElement('span');
+                text.innerText = `דף ${page.dafHeb} ע"${page.amudHeb}`;
+
+                li.appendChild(icon);
+                li.appendChild(text);
+                ul.appendChild(li);
+            });
+        }
+
+        function updateProgress() {
+            const total = allPages.length;
+            let readCount = 0;
+            allPages.forEach(p => { if (readPages.has(p.id)) readCount++; });
+            
+            const progressEl = document.getElementById('progress');
+            if (total > 0) {
+                const percent = Math.round((readCount / total) * 100);
+                progressEl.innerText = `${readCount} מתוך ${total} דפים נקראו (${percent}%)`;
+            } else {
+                progressEl.innerText = '';
+            }
+        }
+
+        function openReader(index) {
+            currentReaderIndex = index;
+            const page = allPages[index];
+            
+            document.getElementById('reader-title').innerText = `מסכת ${page.masechet} - דף ${page.dafHeb} ע"${page.amudHeb}`;
+            document.getElementById('reader-content').innerText = page.content;
+            
+            updateReaderButtons();
+            
+            // סימון אוטומטי כנקרא בעת פתיחה
+            markAsRead(page.id, true);
+            
+            showScreen('reader');
+            window.scrollTo(0, 0);
+        }
+
+        function updateReaderButtons() {
+            const page = allPages[currentReaderIndex];
+            
+            const btnPrev = document.getElementById('btn-prev');
+            const btnNext = document.getElementById('btn-next');
+            const btnToggleRead = document.getElementById('btn-toggle-read');
+
+            btnPrev.disabled = currentReaderIndex === 0;
+            btnNext.disabled = currentReaderIndex === allPages.length - 1;
+
+            if (readPages.has(page.id)) {
+                btnToggleRead.innerText = "סמן כלא נקרא";
+                btnToggleRead.classList.add('btn-outline');
+            } else {
+                btnToggleRead.innerText = "סמן כנקרא";
+                btnToggleRead.classList.remove('btn-outline');
+            }
+        }
+
+        // ----------------------------------------------------
+        // אירועי כפתורים וניווט
+        // ----------------------------------------------------
+        document.getElementById('btn-back').onclick = () => {
+            renderList(); // רענון הרשימה כדי להציג שינויי "נקרא"
+            showScreen('list');
+        };
+
+        document.getElementById('btn-prev').onclick = () => {
+            if (currentReaderIndex > 0) openReader(currentReaderIndex - 1);
+        };
+
+        document.getElementById('btn-next').onclick = () => {
+            if (currentReaderIndex < allPages.length - 1) openReader(currentReaderIndex + 1);
+        };
+
+        document.getElementById('btn-toggle-read').onclick = () => {
+            const pageId = allPages[currentReaderIndex].id;
+            markAsRead(pageId, !readPages.has(pageId));
+            updateReaderButtons();
+        };
+
+        function markAsRead(id, isRead) {
+            if (isRead) readPages.add(id);
+            else readPages.delete(id);
+            
+            localStorage.setItem('readPages', JSON.stringify(Array.from(readPages)));
+        }
+
+        // ----------------------------------------------------
+        // ניהול תצוגות (Screens)
+        // ----------------------------------------------------
+        function showScreen(screenName) {
+            loader.style.display = 'none';
+            Object.values(screens).forEach(s => s.classList.add('hidden'));
+            screens[screenName].classList.remove('hidden');
+        }
+
+        function showLoader() {
+            Object.values(screens).forEach(s => s.classList.add('hidden'));
+            loader.style.display = 'block';
+        }
+
+        // טעינת סקריפטים תלויי Google בעת עליית הדף
+        window.onload = function() {
+            // אם הסקריפטים של גוגל נטענו
+            if (typeof gapi !== 'undefined') gapiLoaded();
+            if (typeof google !== 'undefined') gisLoaded();
+        };
+    </script>
+</body>
+</html>
