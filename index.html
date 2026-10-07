@@ -328,7 +328,8 @@
         async function syncFromGmail() {
             showLoader();
             try {
-                const query = 'in:inbox (from:m@sdaf.co.il OR from:"סיכומי דף היומי") subject:מבודדים';
+            const query = 'in:inbox (from:m@sdaf.co.il OR from:"סיכומי דף היומי") -subject:מחודדים';
+
                 let response = await gapi.client.gmail.users.messages.list({
                     userId: 'me',
                     q: query,
