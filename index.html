@@ -460,7 +460,8 @@
             const pagesExtracted = [];
             
             // Regex לזיהוי כותרות עמודים: דף קמ"ב, דף קל"ג - ע"א, דף ב ע"ב
-            const headerRegex = /דף\s+([א-ת"']+)(?:\s*[-–]?\s*ע"([אב]))?/g;
+            const headerRegex = /דף\s+([א-ת]+[״'"]?[א-ת]*)(?:\s*[-–_]*\s*ע"([אב]))?/g;
+
             
             let matches = [];
             let match;
