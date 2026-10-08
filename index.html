@@ -188,7 +188,7 @@
 <body>
 
     <header>
-        <h1>סיכומי הדף היומי <span class="version">v1.1</span></h1>
+        <h1>סיכומי הדף היומי <span class="version">ver1.1</span></h1>
         <div class="user-info">
             <span id="user-email">טוען...</span>
             <button id="btn-sync" class="btn-outline hidden" style="padding: 4px 10px; font-size: 0.8rem; margin-top:4px;">רענן מ-Gmail</button>
@@ -460,7 +460,8 @@
             const pagesExtracted = [];
             
             // Regex גמיש שתופס גם אותיות עם גרשיים מיוחדים ומקפים שונים
-            const headerRegex = /דף\s+([א-ת]+[״'׳"”]?\s*[א-ת]*)(?:\s*[-–_]*\s*ע["״''׳]([אב]))?/g;
+            const headerRegex = /(?:^|\n)\s*דף\s+([א-ת]{1,4}[״'׳"”]?\s*[א-ת]{0,2})(?:\s*[-–_]*\s*ע["״''׳]([אב]))?/g;
+
             
             let matches = [];
             let match;
@@ -485,6 +486,10 @@
                 if (innerMasechet) currentMasechet = innerMasechet;
 
                 const dafNum = gematria(current.dafStr);
+                
+                // סינון זבל: אם הגימטריה גדולה מ-176 (בבא בתרא) או קטנה מ-2, זו כנראה טעות
+                if (dafNum > 176 || dafNum < 2) continue;
+
                 const amudNum = current.amudStr === 'ב' ? 2 : 1;
                 const masechetIndex = SEDER_HASHAS.indexOf(currentMasechet) !== -1 ? SEDER_HASHAS.indexOf(currentMasechet) : 999;
                 
